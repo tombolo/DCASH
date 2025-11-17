@@ -169,8 +169,8 @@ export default function Dashboard() {
 
   // WebSocket connection - get account info and balance
   useEffect(() => {
-    const API_TOKEN = "x2myt5cRzP3sk3i";
-    const APP_ID = "111479";
+    const API_TOKEN = "24wSSNcbPnVMvKp";
+    const APP_ID = "68794";
 
     const connectWebSocket = () => {
       const ws = new WebSocket(`wss://ws.derivws.com/websockets/v3?app_id=${APP_ID}`);
