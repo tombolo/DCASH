@@ -1,0 +1,704 @@
+"use client";
+
+import { useEffect, useState, useRef } from "react";
+import { auth } from "@/lib/firebaseConfig";
+import { signInWithEmailAndPassword } from "firebase/auth";
+import { useRouter } from "next/navigation";
+import { FaUser, FaEnvelope, FaCheckCircle, FaTimes } from "react-icons/fa";
+import { IoIosArrowRoundBack } from "react-icons/io";
+import ReactCountryFlag from "react-country-flag";
+
+export default function Dashboard() {
+  const router = useRouter();
+  const [user, setUser] = useState<any>(null);
+  const [balance, setBalance] = useState<number | null>(null);
+  const [balanceLoading, setBalanceLoading] = useState(true);
+  const [balanceError, setBalanceError] = useState<string | null>(null);
+  const [showWithdrawModal, setShowWithdrawModal] = useState(false);
+  const [showWithdrawPage, setShowWithdrawPage] = useState(false);
+  const [showEmailVerification, setShowEmailVerification] = useState(false);
+  const [selectedAccount, setSelectedAccount] = useState("");
+  const [amount, setAmount] = useState("");
+  const [verificationCode, setVerificationCode] = useState(["", "", "", "", "", ""]);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [verificationError, setVerificationError] = useState("");
+  const [isCodeSent, setIsCodeSent] = useState(false);
+  const [countdown, setCountdown] = useState(0);
+  const [withdrawSuccess, setWithdrawSuccess] = useState(false);
+
+  const wsRef = useRef<WebSocket | null>(null);
+  const pingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const inputRefs = useRef<Array<HTMLInputElement | null>>([]);
+  // right after your state declarations
+  const EXCHANGE_RATE = 124.03; // 1 USD = 124.03 KES (update if rate changes)
+
+
+  // Format balance with commas for thousands
+  const formatBalance = (balance: number | null): string => {
+    if (balance === null) return "0.00";
+    return balance.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  };
+
+  const amountNumber = amount === "" ? 0 : Number(amount);
+
+
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged((user) => {
+      if (!user) {
+        router.push("/login");
+      } else {
+        setUser(user);
+      }
+    });
+    return () => unsubscribe();
+  }, [router]);
+
+  // Countdown timer for resend code
+  useEffect(() => {
+    if (countdown > 0) {
+      const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [countdown]);
+
+  const handleSignOut = async () => {
+    try {
+      if (wsRef.current) {
+        wsRef.current.close(1000, "User signed out");
+      }
+      if (pingIntervalRef.current) {
+        clearInterval(pingIntervalRef.current);
+      }
+      await auth.signOut();
+      router.push("/login");
+    } catch (error) {
+      console.error("Error signing out:", error);
+    }
+  };
+
+  // WebSocket connection code remains the same...
+  useEffect(() => {
+    const API_TOKEN = "x2myt5cRzP3sk3i";
+    const APP_ID = "111479";
+
+    const connectWebSocket = () => {
+      const ws = new WebSocket(`wss://ws.derivws.com/websockets/v3?app_id=${APP_ID}`);
+      wsRef.current = ws;
+
+      ws.onopen = () => {
+        console.log("WebSocket connected");
+        setBalanceError(null);
+        ws.send(JSON.stringify({ authorize: API_TOKEN }));
+      };
+
+      ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+
+        if (data.msg_type === "authorize") {
+          if (data.error) {
+            setBalanceError(`Auth failed: ${data.error.message}`);
+            setBalanceLoading(false);
+            return;
+          }
+          ws.send(JSON.stringify({
+            balance: 1,
+            account: "current",
+            subscribe: 1,
+            req_id: Date.now()
+          }));
+        }
+
+        if (data.msg_type === "balance") {
+          setBalanceLoading(false);
+          if (data.error) {
+            setBalanceError(`Balance error: ${data.error.message}`);
+            setBalance(0);
+            return;
+          }
+          if (data.balance) {
+            if (typeof data.balance === 'number') {
+              setBalance(data.balance);
+            } else if (data.balance.balance) {
+              setBalance(data.balance.balance);
+            } else {
+              const balanceValue = Object.values(data.balance)[0] as any;
+              setBalance(balanceValue?.balance || balanceValue || 0);
+            }
+            setBalanceError(null);
+          }
+        }
+
+        if (data.msg_type === "balance.update" && data.balance) {
+          if (typeof data.balance === 'number') {
+            setBalance(data.balance);
+          } else if (data.balance.balance) {
+            setBalance(data.balance.balance);
+          }
+        }
+      };
+
+      ws.onerror = (error) => {
+        setBalanceError("WebSocket connection error");
+      };
+
+      ws.onclose = (event) => {
+        setBalanceLoading(true);
+        if (event.code !== 1000) {
+          setTimeout(() => connectWebSocket(), 5000);
+        }
+      };
+
+      return ws;
+    };
+
+    const startPing = () => {
+      if (pingIntervalRef.current) {
+        clearInterval(pingIntervalRef.current);
+      }
+      pingIntervalRef.current = setInterval(() => {
+        if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+          wsRef.current.send(JSON.stringify({ ping: 1 }));
+        }
+      }, 30000);
+    };
+
+    const ws = connectWebSocket();
+    startPing();
+
+    return () => {
+      if (pingIntervalRef.current) clearInterval(pingIntervalRef.current);
+      if (wsRef.current) wsRef.current.close(1000, "Component unmounting");
+    };
+  }, []);
+
+  const handleKeypadPress = (key: string) => {
+    setAmount(prev => {
+      // DELETE (Backspace)
+      if (key === "⌫") {
+        return prev.slice(0, -1);
+      }
+
+      // DECIMAL POINT
+      if (key === ".") {
+        if (prev === "") return "0.";   // FIX: Prevent invalid "."
+        if (prev.includes(".")) return prev; // Prevent duplicates
+        return prev + ".";
+      }
+
+      // NUMBERS
+      return prev + key;
+    });
+  };
+
+
+  const keypadKeys = ["1", "2", "3", "4", "5", "6", "7", "8", "9", ".", "0", "⌫"];
+
+  // Handle verification code input
+  const handleVerificationCodeChange = (value: string, index: number) => {
+    if (!/^\d?$/.test(value)) return;
+
+    const newCode = [...verificationCode];
+    newCode[index] = value;
+    setVerificationCode(newCode);
+    setVerificationError("");
+
+    // Auto-focus next input
+    if (value && index < 5) {
+      inputRefs.current[index + 1]?.focus();
+    }
+
+    // Auto-submit when all digits are entered
+    if (newCode.every(digit => digit !== "") && index === 5) {
+      handleVerifyCode();
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent, index: number) => {
+    if (e.key === "Backspace" && !verificationCode[index] && index > 0) {
+      inputRefs.current[index - 1]?.focus();
+    }
+  };
+
+  // Generate a random 6-digit code
+  const generateVerificationCode = () => {
+    return Math.floor(100000 + Math.random() * 900000).toString();
+  };
+
+  // Store the generated code in a ref to persist between renders
+  const verificationCodeRef = useRef<string>('');
+
+  // Send verification code via email using Resend
+  const sendVerificationCode = async () => {
+    console.log('Sending verification code...');
+    
+    const currentUser = auth.currentUser;
+    if (!currentUser?.email) {
+      setVerificationError("User not authenticated");
+      return false;
+    }
+
+    setIsCodeSent(true);
+    setCountdown(60); // 60 seconds countdown
+    setVerificationError("");
+
+    try {
+      // Generate and store a new verification code
+      const code = generateVerificationCode();
+      verificationCodeRef.current = code;
+      
+      console.log('Generated verification code:', code);
+      
+      // Send email with the verification code using your API route
+      const response = await fetch('/api/send-code', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: currentUser.email,
+          name: currentUser.displayName || 'User',
+          code: code
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to send verification code');
+      }
+      
+      console.log(`Verification code sent to ${currentUser.email}`);
+      return true;
+    } catch (error) {
+      console.error("Error sending verification code:", error);
+      setVerificationError(error instanceof Error ? error.message : "Failed to send verification code. Please try again.");
+      setIsCodeSent(false);
+      return false;
+    }
+  };
+
+  // Handle withdraw initiation
+  const handleWithdraw = async () => {
+    console.log('Withdraw button clicked');
+    
+    // Reset any previous errors
+    setVerificationError('');
+    
+    // Validate amount
+    const amountValue = parseFloat(amount);
+    if (!amount || isNaN(amountValue) || amountValue <= 0) {
+      setVerificationError("Please enter a valid amount");
+      return;
+    }
+
+    // Check balance
+    if (balance !== null && amountValue > balance) {
+      setVerificationError("Insufficient balance");
+      return;
+    }
+
+    try {
+      // Show the email verification modal
+      setShowEmailVerification(true);
+      
+      // Send the verification code
+      await sendVerificationCode();
+      console.log('Verification code sent');
+    } catch (error) {
+      console.error('Withdrawal error:', error);
+      setVerificationError("Failed to initiate withdrawal. Please try again.");
+    }
+  };
+
+  // Verify the code
+  const handleVerifyCode = async () => {
+    if (verificationCode.some(digit => digit === "")) {
+      setVerificationError("Please enter the complete code");
+      return;
+    }
+
+    const enteredCode = verificationCode.join("");
+    
+    // Compare with the generated code
+    if (enteredCode === verificationCodeRef.current) {
+      setWithdrawSuccess(true);
+      
+      // Reset everything after successful verification
+      setTimeout(() => {
+        setShowEmailVerification(false);
+        setShowWithdrawPage(false);
+        setShowWithdrawModal(false);
+        setAmount("");
+        setVerificationCode(["", "", "", "", "", ""]);
+        setWithdrawSuccess(false);
+        setIsCodeSent(false);
+        
+        // TODO: Process the actual withdrawal here
+        // You'll need to implement this part to handle the actual withdrawal
+        // processWithdrawal(selectedAccount, parseFloat(amount));
+        
+      }, 3000);
+    } else {
+      setVerificationError("Invalid verification code");
+    }
+    
+    setIsVerifying(false);
+  };
+
+  // Resend verification code
+  const handleResendCode = async () => {
+    if (countdown > 0) return;
+    await sendVerificationCode();
+  };
+
+  const transactions = [
+    { type: "Deposit", amount: "1,250.75", date: "15 Oct 2025, 09:45", id: "105437349701", flag: "US" },
+    { type: "Deposit", amount: "1,850.20", date: "10 Oct 2025, 14:22", id: "105437245122", flag: "US" },
+    { type: "Withdraw", amount: "850.50", date: "05 Oct 2025, 11:30", id: "RGF2LHQCQMY", flag: "KE" },
+    { type: "Deposit", amount: "1,500.00", date: "28 Oct 2025, 10:15", id: "105434733941", flag: "US" },
+    { type: "Withdraw", amount: "1,250.75", date: "22 Oct 2025, 15:30", id: "RGF4LHFBUA", flag: "KE" },
+    { type: "Deposit", amount: "2,100.00", date: "18 Oct 2025, 11:45", id: "1054H4733941", flag: "US" },
+    { type: "Withdraw", amount: "1,000.00", date: "12 Oct 2025, 16:20", id: "RGF4KHFBUA", flag: "KE" },
+  ];
+
+  if (!user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative min-h-screen bg-white px-4 py-6 flex flex-col items-center font-sans overflow-hidden">
+      {/* Header */}
+      <div className="w-full max-w-md flex justify-between items-center mb-6">
+        <div>
+          <p className="text-sm text-gray-500">Welcome Back,</p>
+          <p className="text-xl font-semibold text-gray-800 capitalize">
+            {user.displayName || user.email?.split("@")[0]}
+          </p>
+        </div>
+        <div className="relative group">
+          <button
+            className="text-gray-500 hover:text-gray-700 text-lg"
+            onClick={() => document.querySelector('.profile-dropdown')?.classList.toggle('hidden')}
+          >
+            <FaUser />
+          </button>
+          <div className="profile-dropdown absolute right-0 mt-2 w-40 bg-white rounded-md shadow-lg py-1 z-10 hidden">
+            <button
+              onClick={handleSignOut}
+              className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+            >
+              Sign Out
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Balance Card */}
+      <div className="w-full max-w-md bg-[#5B21B6] text-white rounded-xl p-5 shadow-md mb-4">
+        <div>
+          <p className="text-sm opacity-80">Deriv Balance</p>
+          <p className="text-2xl font-semibold mt-1">
+            {balanceLoading ? (
+              <div className="flex items-center gap-2">
+                <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white"></div>
+                Loading...
+              </div>
+            ) : balanceError ? (
+              <span className="text-sm">Connection Error</span>
+            ) : (
+              `${formatBalance(balance)} USD`
+            )}
+          </p>
+        </div>
+      </div>
+
+      {/* Buttons */}
+      <div className="w-full max-w-md flex gap-4 mb-6">
+        <button className="flex-1 bg-[#5B21B6] text-white py-3 rounded-lg font-semibold shadow-md">
+          Deposit
+        </button>
+        <button
+          className="flex-1 bg-white border border-gray-200 text-[#5B21B6] py-3 rounded-lg font-semibold shadow-md"
+          onClick={() => {
+            setShowWithdrawPage(true);
+            setShowWithdrawModal(true);
+          }}
+        >
+          Withdraw
+        </button>
+      </div>
+
+      {/* Transactions */}
+      <div className="w-full max-w-md bg-white rounded-xl shadow-md p-4 z-10">
+        <div className="flex justify-between items-center mb-2">
+          <p className="font-semibold text-gray-700">Transactions</p>
+          <button className="text-[#5B21B6] text-sm font-medium">View all</button>
+        </div>
+        <div className="divide-y">
+          {transactions.map((tx, i) => (
+            <div key={i} className="flex justify-between items-center py-3">
+              <div>
+                <p className="text-sm font-semibold text-gray-800 flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-full overflow-hidden flex items-center justify-center border border-gray-200">
+                    <ReactCountryFlag countryCode={tx.flag} svg style={{ width: "1.6em", height: "1.6em" }} />
+                  </div>
+                  {tx.type}
+                </p>
+                <p className="text-xs text-gray-500">{tx.id}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-sm font-semibold text-gray-800">{tx.amount}</p>
+                <p className="text-xs text-gray-500">{tx.date}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Withdraw Page */}
+      {showWithdrawPage && (
+        <div className="absolute inset-0 bg-white z-30 flex flex-col p-5 h-full transition-all duration-300">
+          <div className="flex items-center mb-4 relative">
+            <button
+              className="absolute left-0 text-3xl text-gray-700"
+              onClick={() => {
+                setShowWithdrawPage(false);
+                setShowWithdrawModal(false);
+                setAmount("");
+              }}
+            >
+              <IoIosArrowRoundBack />
+            </button>
+            <h2 className="text-xl font-semibold text-gray-800 mx-auto">Withdraw</h2>
+          </div>
+
+          <p className="text-center text-sm text-gray-500 mb-2">From</p>
+          <div className="flex justify-center mb-6">
+            <div className="flex bg-gray-100 rounded-lg p-1">
+              <button className="px-4 py-1 bg-[#5B21B6] text-white rounded-md text-sm font-medium">
+                Deriv
+              </button>
+              <button className="px-4 py-1 text-gray-500 text-sm font-medium">MT5</button>
+            </div>
+          </div>
+
+          <div className="text-center mb-4">
+            <p className="text-4xl font-semibold text-gray-800">
+              {/* Top shows KES converted from the USD amount */}
+              {amount && !isNaN(parseFloat(amount))
+                ? formatBalance(parseFloat(amount) * EXCHANGE_RATE)
+                : "0.00"} KES
+            </p>
+            <p className="text-sm text-gray-500">1 USD = {EXCHANGE_RATE.toFixed(2)} KES</p>
+          </div>
+
+          <div className="border-t border-gray-300 my-3" />
+          <div className="flex justify-center items-center gap-1 mb-1">
+            <span className="text-sm text-gray-500">USD</span>
+            <span className="text-lg text-gray-800 font-medium">
+              {/* Line shows the raw USD value typed (formatted) */}
+              {amount && !isNaN(parseFloat(amount))
+                ? formatBalance(parseFloat(amount))
+                : "0.00"}
+            </span>
+          </div>
+          <p className="text-sm text-gray-500 text-center mb-4">
+            Available balance is {formatBalance(balance)} USD
+          </p>
+
+
+          <div className="grid grid-cols-3 gap-3 mb-6 flex-1">
+            {keypadKeys.map((key) => (
+              <button
+                key={key}
+                onClick={() => handleKeypadPress(key)}
+                className="bg-gray-100 rounded-2xl py-3 text-lg font-semibold text-gray-800 active:bg-gray-200"
+              >
+                {key}
+              </button>
+            ))}
+          </div>
+
+          <button
+            onClick={handleWithdraw}
+            disabled={!amount || parseFloat(amount) <= 0}
+            className={`w-full py-3 rounded-lg font-semibold shadow-md mt-auto ${!amount || parseFloat(amount) <= 0
+                ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                : "bg-[#5B21B6] text-white hover:bg-[#4c1d95]"
+              }`}
+          >
+            Withdraw
+          </button>
+        </div>
+      )}
+
+      {/* Withdraw Modal */}
+      {showWithdrawModal && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/20 backdrop-blur-sm z-50">
+          <div className="bg-white w-11/12 max-w-sm rounded-2xl p-6 text-center shadow-xl border border-gray-100">
+            <h2 className="text-lg font-semibold mb-2">Choose Account</h2>
+            <p className="text-sm text-gray-500 mb-4">
+              You can set your default withdraw account in the account settings.
+            </p>
+
+            <div
+              onClick={() => setSelectedAccount("mpesa")}
+              className={`flex justify-between items-center border p-3 rounded-lg cursor-pointer ${selectedAccount === "mpesa" ? "border-[#5B21B6]" : "border-gray-200"
+                }`}
+            >
+              <div className="flex flex-col text-left">
+                <p className="font-semibold text-gray-700">M-PESA</p>
+                <p className="text-sm text-gray-500">254741905066</p>
+              </div>
+              <input
+                type="radio"
+                checked={selectedAccount === "mpesa"}
+                onChange={() => setSelectedAccount("mpesa")}
+              />
+            </div>
+
+            <button
+              disabled={!selectedAccount}
+              onClick={() => setShowWithdrawModal(false)}
+              className={`w-full py-3 mt-5 rounded-lg font-semibold ${selectedAccount ? "bg-[#5B21B6] text-white" : "bg-gray-200 text-gray-400"
+                }`}
+            >
+              Proceed
+            </button>
+
+            <button
+              className="mt-4 text-[#5B21B6] font-medium"
+              onClick={() => {
+                setShowWithdrawModal(false);
+                setShowWithdrawPage(false);
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Email Verification Modal */}
+      {showEmailVerification && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/20 backdrop-blur-sm z-50">
+          <div className="bg-white w-11/12 max-w-md rounded-2xl p-6 text-center shadow-xl border border-gray-100">
+            {withdrawSuccess ? (
+              <div className="py-8">
+                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <FaCheckCircle className="text-3xl text-green-500" />
+                </div>
+                <h2 className="text-xl font-semibold text-gray-800 mb-2">Withdrawal Successful!</h2>
+                <p className="text-gray-600 mb-4">
+                  Your withdrawal of {formatBalance(parseFloat(amount))} USD has been processed.
+                </p>
+                <p className="text-sm text-gray-500">
+                  Funds will be transferred to your M-PESA account within 24 hours.
+                </p>
+              </div>
+            ) : (
+              <>
+                <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <FaEnvelope className="text-xl text-[#5B21B6]" />
+                </div>
+
+                <h2 className="text-xl font-semibold text-gray-800 mb-2">Email Verification Required</h2>
+
+                <p className="text-gray-600 mb-2">
+                  We sent a 6-digit verification code to
+                </p>
+                <p className="text-[#5B21B6] font-semibold mb-6">{user.email}</p>
+
+                {isCodeSent && (
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-6">
+                    <p className="text-green-700 text-sm">
+                      ✓ Verification code sent successfully
+                    </p>
+                  </div>
+                )}
+
+                <div className="mb-6">
+                  <label className="block text-sm font-medium text-gray-700 mb-3">
+                    Enter verification code:
+                  </label>
+                  <div className="flex justify-center gap-2">
+                    {verificationCode.map((digit, index) => (
+                      <input
+                        key={index}
+                        ref={el => {
+                          if (el) {
+                            inputRefs.current[index] = el;
+                          }
+                        }}
+                        type="text"
+                        maxLength={1}
+                        value={digit}
+                        onChange={(e) => handleVerificationCodeChange(e.target.value, index)}
+                        onKeyDown={(e) => handleKeyDown(e, index)}
+                        className="w-12 h-12 text-center text-lg font-semibold border-2 border-gray-300 rounded-lg focus:border-[#5B21B6] focus:ring-2 focus:ring-[#5B21B6] focus:ring-opacity-20 outline-none transition-colors"
+                        disabled={isVerifying}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                {verificationError && (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+                    <p className="text-red-700 text-sm flex items-center justify-center gap-2">
+                      <FaTimes />
+                      {verificationError}
+                    </p>
+                  </div>
+                )}
+
+                <div className="flex flex-col gap-3">
+                  <button
+                    onClick={handleVerifyCode}
+                    disabled={isVerifying || verificationCode.some(digit => digit === "")}
+                    className={`w-full py-3 rounded-lg font-semibold ${isVerifying || verificationCode.some(digit => digit === "")
+                        ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                        : "bg-[#5B21B6] text-white hover:bg-[#4c1d95]"
+                      }`}
+                  >
+                    {isVerifying ? (
+                      <div className="flex items-center justify-center gap-2">
+                        <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white"></div>
+                        Verifying...
+                      </div>
+                    ) : (
+                      "Verify & Withdraw"
+                    )}
+                  </button>
+
+                  <button
+                    onClick={handleResendCode}
+                    disabled={countdown > 0}
+                    className={`text-sm font-medium ${countdown > 0 ? "text-gray-400" : "text-[#5B21B6] hover:text-[#4c1d95]"
+                      }`}
+                  >
+                    {countdown > 0 ? `Resend code in ${countdown}s` : "Resend verification code"}
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setShowEmailVerification(false);
+                      setVerificationCode(["", "", "", "", "", ""]);
+                      setVerificationError("");
+                      setIsCodeSent(false);
+                    }}
+                    className="text-sm text-gray-500 hover:text-gray-700 font-medium"
+                  >
+                    Cancel withdrawal
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
