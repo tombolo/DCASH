@@ -1,12 +1,22 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { auth } from "@/lib/firebaseConfig";
+import { auth, db } from "@/lib/firebaseConfig";
+import { doc, getDoc } from "firebase/firestore";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { useRouter } from "next/navigation";
 import { FaUser, FaEnvelope, FaCheckCircle, FaTimes } from "react-icons/fa";
 import { IoIosArrowRoundBack } from "react-icons/io";
 import ReactCountryFlag from "react-country-flag";
+
+interface Transaction {
+  type: "Deposit" | "Withdraw";
+  amount: string;
+  date: string;
+  id: string;
+  flag: string;
+  amountNumber: number;
+}
 
 export default function Dashboard() {
   const router = useRouter();
@@ -25,13 +35,14 @@ export default function Dashboard() {
   const [isCodeSent, setIsCodeSent] = useState(false);
   const [countdown, setCountdown] = useState(0);
   const [withdrawSuccess, setWithdrawSuccess] = useState(false);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [derivAccountName, setDerivAccountName] = useState<string>("");
+  const [userFullName, setUserFullName] = useState<string>("");
 
   const wsRef = useRef<WebSocket | null>(null);
   const pingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const inputRefs = useRef<Array<HTMLInputElement | null>>([]);
-  // right after your state declarations
   const EXCHANGE_RATE = 124.03; // 1 USD = 124.03 KES (update if rate changes)
-
 
   // Format balance with commas for thousands
   const formatBalance = (balance: number | null): string => {
@@ -39,17 +50,97 @@ export default function Dashboard() {
     return balance.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
   };
 
+  // Generate transaction ID
+  const generateTransactionId = (type: "Deposit" | "Withdraw"): string => {
+    const prefix = type === "Withdraw" ? "WTH" : "DEP";
+    const random = Math.random().toString(36).substring(2, 10).toUpperCase();
+    return `${prefix}${random}`;
+  };
+
+  // Format date for transaction
+  const getCurrentDate = (): string => {
+    const now = new Date();
+    const options: Intl.DateTimeFormatOptions = {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    };
+    return now.toLocaleDateString('en-US', options);
+  };
+
+  // Load transactions from localStorage
+  const loadTransactions = () => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('deriv-transactions');
+      if (saved) {
+        setTransactions(JSON.parse(saved));
+      }
+    }
+  };
+
+  // Save transactions to localStorage
+  const saveTransactions = (newTransactions: Transaction[]) => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('deriv-transactions', JSON.stringify(newTransactions));
+    }
+  };
+
+  // Add new transaction
+  const addTransaction = (type: "Deposit" | "Withdraw", amount: number) => {
+    const newTransaction: Transaction = {
+      type,
+      amount: formatBalance(amount),
+      date: getCurrentDate(),
+      id: generateTransactionId(type),
+      flag: type === "Withdraw" ? "KE" : "US",
+      amountNumber: amount
+    };
+
+    const updatedTransactions = [newTransaction, ...transactions];
+    setTransactions(updatedTransactions);
+    saveTransactions(updatedTransactions);
+  };
+
+  // Process withdrawal - update balance and add transaction
+  const processWithdrawal = (withdrawAmount: number) => {
+    if (balance !== null && withdrawAmount <= balance) {
+      // Update balance
+      const newBalance = balance - withdrawAmount;
+      setBalance(newBalance);
+
+      // Add transaction
+      addTransaction("Withdraw", withdrawAmount);
+
+      return true;
+    }
+    return false;
+  };
+
   const amountNumber = amount === "" ? 0 : Number(amount);
 
-
   useEffect(() => {
+    const fetchUserData = async (uid: string) => {
+      try {
+        const userDoc = await getDoc(doc(db, "users", uid));
+        if (userDoc.exists()) {
+          setUserFullName(userDoc.data().name || "");
+        }
+      } catch (error) {
+        console.error("Error fetching user data:", error);
+      }
+    };
+
     const unsubscribe = auth.onAuthStateChanged((user) => {
-      if (!user) {
-        router.push("/login");
+      setUser(user);
+      if (user) {
+        fetchUserData(user.uid);
       } else {
-        setUser(user);
+        router.push("/login");
       }
     });
+
     return () => unsubscribe();
   }, [router]);
 
@@ -76,7 +167,7 @@ export default function Dashboard() {
     }
   };
 
-  // WebSocket connection code remains the same...
+  // WebSocket connection - get account info and balance
   useEffect(() => {
     const API_TOKEN = "x2myt5cRzP3sk3i";
     const APP_ID = "111479";
@@ -100,6 +191,18 @@ export default function Dashboard() {
             setBalanceLoading(false);
             return;
           }
+
+          // Set Deriv account name from authorize response
+          if (data.authorize && data.authorize.loginid) {
+            setDerivAccountName(data.authorize.loginid);
+          }
+
+          // Get account information
+          ws.send(JSON.stringify({
+            get_account_status: 1
+          }));
+
+          // Subscribe to balance
           ws.send(JSON.stringify({
             balance: 1,
             account: "current",
@@ -133,6 +236,13 @@ export default function Dashboard() {
             setBalance(data.balance);
           } else if (data.balance.balance) {
             setBalance(data.balance.balance);
+          }
+        }
+
+        // Handle account status response
+        if (data.msg_type === "get_account_status") {
+          if (data.get_account_status && data.get_account_status.loginid) {
+            setDerivAccountName(data.get_account_status.loginid);
           }
         }
       };
@@ -190,7 +300,6 @@ export default function Dashboard() {
     });
   };
 
-
   const keypadKeys = ["1", "2", "3", "4", "5", "6", "7", "8", "9", ".", "0", "⌫"];
 
   // Handle verification code input
@@ -230,7 +339,7 @@ export default function Dashboard() {
   // Send verification code via email using Resend
   const sendVerificationCode = async () => {
     console.log('Sending verification code...');
-    
+
     const currentUser = auth.currentUser;
     if (!currentUser?.email) {
       setVerificationError("User not authenticated");
@@ -245,9 +354,9 @@ export default function Dashboard() {
       // Generate and store a new verification code
       const code = generateVerificationCode();
       verificationCodeRef.current = code;
-      
+
       console.log('Generated verification code:', code);
-      
+
       // Send email with the verification code using your API route
       const response = await fetch('/api/send-code', {
         method: 'POST',
@@ -256,7 +365,7 @@ export default function Dashboard() {
         },
         body: JSON.stringify({
           email: currentUser.email,
-          name: currentUser.displayName || 'User',
+          name: derivAccountName || currentUser.displayName || 'User',
           code: code
         }),
       });
@@ -265,7 +374,7 @@ export default function Dashboard() {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.message || 'Failed to send verification code');
       }
-      
+
       console.log(`Verification code sent to ${currentUser.email}`);
       return true;
     } catch (error) {
@@ -279,10 +388,10 @@ export default function Dashboard() {
   // Handle withdraw initiation
   const handleWithdraw = async () => {
     console.log('Withdraw button clicked');
-    
+
     // Reset any previous errors
     setVerificationError('');
-    
+
     // Validate amount
     const amountValue = parseFloat(amount);
     if (!amount || isNaN(amountValue) || amountValue <= 0) {
@@ -299,7 +408,7 @@ export default function Dashboard() {
     try {
       // Show the email verification modal
       setShowEmailVerification(true);
-      
+
       // Send the verification code
       await sendVerificationCode();
       console.log('Verification code sent');
@@ -317,30 +426,34 @@ export default function Dashboard() {
     }
 
     const enteredCode = verificationCode.join("");
-    
+
     // Compare with the generated code
     if (enteredCode === verificationCodeRef.current) {
-      setWithdrawSuccess(true);
-      
-      // Reset everything after successful verification
-      setTimeout(() => {
-        setShowEmailVerification(false);
-        setShowWithdrawPage(false);
-        setShowWithdrawModal(false);
-        setAmount("");
-        setVerificationCode(["", "", "", "", "", ""]);
-        setWithdrawSuccess(false);
-        setIsCodeSent(false);
-        
-        // TODO: Process the actual withdrawal here
-        // You'll need to implement this part to handle the actual withdrawal
-        // processWithdrawal(selectedAccount, parseFloat(amount));
-        
-      }, 3000);
+      const withdrawAmount = parseFloat(amount);
+
+      // Process the withdrawal - update balance and add transaction
+      const success = processWithdrawal(withdrawAmount);
+
+      if (success) {
+        setWithdrawSuccess(true);
+
+        // Reset everything after successful verification
+        setTimeout(() => {
+          setShowEmailVerification(false);
+          setShowWithdrawPage(false);
+          setShowWithdrawModal(false);
+          setAmount("");
+          setVerificationCode(["", "", "", "", "", ""]);
+          setWithdrawSuccess(false);
+          setIsCodeSent(false);
+        }, 3000);
+      } else {
+        setVerificationError("Failed to process withdrawal");
+      }
     } else {
       setVerificationError("Invalid verification code");
     }
-    
+
     setIsVerifying(false);
   };
 
@@ -349,16 +462,6 @@ export default function Dashboard() {
     if (countdown > 0) return;
     await sendVerificationCode();
   };
-
-  const transactions = [
-    { type: "Deposit", amount: "1,250.75", date: "15 Oct 2025, 09:45", id: "105437349701", flag: "US" },
-    { type: "Deposit", amount: "1,850.20", date: "10 Oct 2025, 14:22", id: "105437245122", flag: "US" },
-    { type: "Withdraw", amount: "850.50", date: "05 Oct 2025, 11:30", id: "RGF2LHQCQMY", flag: "KE" },
-    { type: "Deposit", amount: "1,500.00", date: "28 Oct 2025, 10:15", id: "105434733941", flag: "US" },
-    { type: "Withdraw", amount: "1,250.75", date: "22 Oct 2025, 15:30", id: "RGF4LHFBUA", flag: "KE" },
-    { type: "Deposit", amount: "2,100.00", date: "18 Oct 2025, 11:45", id: "1054H4733941", flag: "US" },
-    { type: "Withdraw", amount: "1,000.00", date: "12 Oct 2025, 16:20", id: "RGF4KHFBUA", flag: "KE" },
-  ];
 
   if (!user) {
     return (
@@ -374,9 +477,7 @@ export default function Dashboard() {
       <div className="w-full max-w-md flex justify-between items-center mb-6">
         <div>
           <p className="text-sm text-gray-500">Welcome Back,</p>
-          <p className="text-xl font-semibold text-gray-800 capitalize">
-            {user.displayName || user.email?.split("@")[0]}
-          </p>
+          <h1 className="text-2xl font-bold text-gray-800"> {userFullName || user?.email?.split('@')[0]}</h1>
         </div>
         <div className="relative group">
           <button
@@ -438,23 +539,31 @@ export default function Dashboard() {
           <button className="text-[#5B21B6] text-sm font-medium">View all</button>
         </div>
         <div className="divide-y">
-          {transactions.map((tx, i) => (
-            <div key={i} className="flex justify-between items-center py-3">
-              <div>
-                <p className="text-sm font-semibold text-gray-800 flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-full overflow-hidden flex items-center justify-center border border-gray-200">
-                    <ReactCountryFlag countryCode={tx.flag} svg style={{ width: "1.6em", height: "1.6em" }} />
-                  </div>
-                  {tx.type}
-                </p>
-                <p className="text-xs text-gray-500">{tx.id}</p>
-              </div>
-              <div className="text-right">
-                <p className="text-sm font-semibold text-gray-800">{tx.amount}</p>
-                <p className="text-xs text-gray-500">{tx.date}</p>
-              </div>
+          {transactions.length === 0 ? (
+            <div className="py-8 text-center">
+              <p className="text-gray-500">No transactions yet</p>
             </div>
-          ))}
+          ) : (
+            transactions.map((tx, i) => (
+              <div key={i} className="flex justify-between items-center py-3">
+                <div>
+                  <p className="text-sm font-semibold text-gray-800 flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-full overflow-hidden flex items-center justify-center border border-gray-200">
+                      <ReactCountryFlag countryCode={tx.flag} svg style={{ width: "1.6em", height: "1.6em" }} />
+                    </div>
+                    {tx.type}
+                  </p>
+                  <p className="text-xs text-gray-500">{tx.id}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-semibold text-gray-800">
+                    {tx.amount} USD
+                  </p>
+                  <p className="text-xs text-gray-500">{tx.date}</p>
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </div>
 
@@ -472,7 +581,7 @@ export default function Dashboard() {
             >
               <IoIosArrowRoundBack />
             </button>
-            <h2 className="text-xl font-semibold text-gray-800 mx-auto">Withdraw</h2>
+            <h2 className="text-xl font-semibold mb-2">Withdraw</h2>
           </div>
 
           <p className="text-center text-sm text-gray-500 mb-2">From</p>
@@ -509,7 +618,6 @@ export default function Dashboard() {
             Available balance is {formatBalance(balance)} USD
           </p>
 
-
           <div className="grid grid-cols-3 gap-3 mb-6 flex-1">
             {keypadKeys.map((key) => (
               <button
@@ -526,8 +634,8 @@ export default function Dashboard() {
             onClick={handleWithdraw}
             disabled={!amount || parseFloat(amount) <= 0}
             className={`w-full py-3 rounded-lg font-semibold shadow-md mt-auto ${!amount || parseFloat(amount) <= 0
-                ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                : "bg-[#5B21B6] text-white hover:bg-[#4c1d95]"
+              ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+              : "bg-[#5B21B6] text-white hover:bg-[#4c1d95]"
               }`}
           >
             Withdraw
@@ -659,8 +767,8 @@ export default function Dashboard() {
                     onClick={handleVerifyCode}
                     disabled={isVerifying || verificationCode.some(digit => digit === "")}
                     className={`w-full py-3 rounded-lg font-semibold ${isVerifying || verificationCode.some(digit => digit === "")
-                        ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                        : "bg-[#5B21B6] text-white hover:bg-[#4c1d95]"
+                      ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                      : "bg-[#5B21B6] text-white hover:bg-[#4c1d95]"
                       }`}
                   >
                     {isVerifying ? (
