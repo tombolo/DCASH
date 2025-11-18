@@ -21,6 +21,7 @@ interface Transaction {
 export default function Dashboard() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
+  const [showPremiumBanner, setShowPremiumBanner] = useState(false);
   const [balance, setBalance] = useState<number | null>(null);
   const [balanceLoading, setBalanceLoading] = useState(true);
   const [balanceError, setBalanceError] = useState<string | null>(null);
@@ -45,6 +46,36 @@ export default function Dashboard() {
   });
   const [derivAccountName, setDerivAccountName] = useState<string>("");
   const [userFullName, setUserFullName] = useState<string>("");
+
+  const handleResendCode = async () => {
+    try {
+      // Reset any existing error
+      setVerificationError("");
+
+      // Here you would typically make an API call to resend the verification code
+      // For example:
+      // await resendVerificationCode(user.email);
+
+      // Start countdown (60 seconds)
+      setCountdown(60);
+      const interval = setInterval(() => {
+        setCountdown((prev) => {
+          if (prev <= 1) {
+            clearInterval(interval);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+
+      // Show success message
+      setIsCodeSent(true);
+      setTimeout(() => setIsCodeSent(false), 3000);
+    } catch (error) {
+      console.error("Error resending code:", error);
+      setVerificationError("Failed to resend verification code. Please try again.");
+    }
+  };
 
   const wsRef = useRef<WebSocket | null>(null);
   const pingIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -130,7 +161,7 @@ export default function Dashboard() {
   useEffect(() => {
     // Load transactions when component mounts
     loadTransactions();
-    
+
     const fetchUserData = async (uid: string) => {
       try {
         const userDoc = await getDoc(doc(db, "users", uid));
@@ -145,6 +176,7 @@ export default function Dashboard() {
     const unsubscribe = auth.onAuthStateChanged((user) => {
       setUser(user);
       if (user) {
+        setShowPremiumBanner(user.email !== "dannymwas652@gmail.com");
         fetchUserData(user.uid);
       } else {
         router.push("/login");
@@ -153,7 +185,7 @@ export default function Dashboard() {
 
     return () => unsubscribe();
   }, [router]);
-  
+
   // Save transactions to localStorage whenever they change
   useEffect(() => {
     saveTransactions(transactions);
@@ -348,15 +380,15 @@ export default function Dashboard() {
     // Only allow digits and max 6 characters
     const sanitized = value.replace(/\D/g, '').slice(0, 6);
     const newCode = sanitized.split('');
-    
+
     // Pad with empty strings if needed
     while (newCode.length < 6) {
       newCode.push('');
     }
-    
+
     setVerificationCode(newCode);
     setVerificationError("");
-    
+
     // Auto-submit when all 6 digits are entered
     if (sanitized.length === 6) {
       handleVerifyCode();
@@ -493,14 +525,17 @@ export default function Dashboard() {
   };
 
   // Resend verification code
-  const handleResendCode = async () => {
-    if (countdown > 0) return;
-    await sendVerificationCode();
-  };
+  useEffect(() => {
+    if (!user || user.email !== "dannymwas652@gmail.com") {
+      setShowPremiumBanner(true);
+    } else {
+      setShowPremiumBanner(false);
+    }
+  }, [user]);
 
   if (!user) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100">
+      <div className="min-h-screen flex items-center justify-center bg-white">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
       </div>
     );
@@ -508,8 +543,17 @@ export default function Dashboard() {
 
   return (
     <div className="relative min-h-screen bg-white px-4 py-6 flex flex-col items-center font-sans overflow-hidden">
+      {/* Illegal Use Banner */}
+      {showPremiumBanner && (
+        <div className="absolute top-0 left-0 right-0 bg-red-600 text-white text-center py-3 z-50">
+          <p className="font-semibold text-sm md:text-base">
+            Illegal use, please contact tombolo
+          </p>
+        </div>
+      )}
+
       {/* Header */}
-      <div className="w-full max-w-md flex justify-between items-center mb-6">
+      <div className={`w-full max-w-md flex justify-between items-center mb-6 ${showPremiumBanner ? 'mt-12' : ''}`}>
         <div>
           <p className="text-sm text-gray-500">Welcome Back,</p>
           <h1 className="text-2xl font-bold text-gray-800"> {userFullName || user?.email?.split('@')[0]}</h1>
@@ -751,106 +795,106 @@ export default function Dashboard() {
                 </p>
               </div>
             ) : (
-                <>
-                  <div className="bg-white w-full rounded-2xl p-6 shadow-lg">
-                    <h2 className="text-2xl font-bold text-black text-center mb-2">
-                      Verification
-                    </h2>
+              <>
+                <div className="bg-white w-full rounded-2xl p-6 shadow-lg">
+                  <h2 className="text-2xl font-bold text-black text-center mb-2">
+                    Verification
+                  </h2>
 
-                    <p className="text-gray-700 text-center text-base">
-                      Please enter the verification code sent to
-                    </p>
+                  <p className="text-gray-700 text-center text-base">
+                    Please enter the verification code sent to
+                  </p>
 
-                    <p className="text-black font-semibold text-center text-base mb-6">
-                      {user.email}
-                    </p>
+                  <p className="text-black font-semibold text-center text-base mb-6">
+                    {user.email}
+                  </p>
 
-                    {/* Verification Code Input Box (SINGLE BOX like screenshot) */}
-                    <div className="mb-6">
-                      <div className="w-full flex items-center bg-gray-100 rounded-xl px-4 py-3 border border-gray-300">
-                        <input
-                          type="text"
-                          maxLength={6}
-                          value={verificationCode.join("")}
-                          onChange={(e) => handleFullCodeInput(e.target.value)}
-                          className="w-full bg-transparent text-lg tracking-widest font-semibold outline-none"
-                          disabled={isVerifying}
-                        />
-                        <span className="text-gray-500">
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            className="h-6 w-6"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M12 11c.6 0 1-.4 1-1V7a1 1 0 10-2 0v3c0 .6.4 1 1 1zm0 4a1.5 1.5 0 100-3 1.5 1.5 0 000 3zm0 5a9 9 0 110-18 9 9 0 010 18z"
-                            />
-                          </svg>
-                        </span>
-                      </div>
-                    </div>
-
-                    {verificationError && (
-                      <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
-                        <p className="text-red-700 text-sm flex items-center justify-center gap-2">
-                          <FaTimes />
-                          {verificationError}
-                        </p>
-                      </div>
-                    )}
-
-                    {/* Buttons */}
-                    <div className="flex flex-col gap-3">
-                      <button
-                        onClick={handleVerifyCode}
-                        disabled={isVerifying || verificationCode.some((d) => d === "")}
-                        className={`w-full py-3 rounded-xl font-semibold text-base ${isVerifying || verificationCode.some((d) => d === "")
-                          ? "bg-[#5B21B6] text-white cursor-not-allowed"
-                            : "bg-[#5B21B6] text-white"
-                          }`}
-                      >
-                        {isVerifying ? (
-                          <div className="flex items-center justify-center gap-2">
-                            <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white"></div>
-                            Verifying...
-                          </div>
-                        ) : (
-                          "Verify & Withdraw"
-                        )}
-                      </button>
-
-                      <button
-                        onClick={handleResendCode}
-                        disabled={countdown > 0}
-                        className={`text-sm font-medium text-center ${countdown > 0
-                            ? "text-gray-400"
-                            : "text-[#5B21B6] hover:text-[#4c1d95]"
-                          }`}
-                      >
-                        {countdown > 0
-                          ? `Resend code in ${countdown}s`
-                          : "Resend verification code"}
-                      </button>
-
-                      <button
-                        onClick={() => {
-                          setShowEmailVerification(false);
-                          setVerificationCode(["", "", "", "", "", ""]);
-                          setVerificationError("");
-                          setIsCodeSent(false);
-                        }}
-                        className="text-sm text-[#5B21B6] hover:text-[#5B21B6] text-center font-semibold"
-                      >
-                        Cancel withdrawal
-                      </button>
+                  {/* Verification Code Input Box (SINGLE BOX like screenshot) */}
+                  <div className="mb-6">
+                    <div className="w-full flex items-center bg-gray-100 rounded-xl px-4 py-3 border border-gray-300">
+                      <input
+                        type="text"
+                        maxLength={6}
+                        value={verificationCode.join("")}
+                        onChange={(e) => handleFullCodeInput(e.target.value)}
+                        className="w-full bg-transparent text-lg tracking-widest font-semibold outline-none"
+                        disabled={isVerifying}
+                      />
+                      <span className="text-gray-500">
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="h-6 w-6"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M12 11c.6 0 1-.4 1-1V7a1 1 0 10-2 0v3c0 .6.4 1 1 1zm0 4a1.5 1.5 0 100-3 1.5 1.5 0 000 3zm0 5a9 9 0 110-18 9 9 0 010 18z"
+                          />
+                        </svg>
+                      </span>
                     </div>
                   </div>
-                </>
+
+                  {verificationError && (
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+                      <p className="text-red-700 text-sm flex items-center justify-center gap-2">
+                        <FaTimes />
+                        {verificationError}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Buttons */}
+                  <div className="flex flex-col gap-3">
+                    <button
+                      onClick={handleVerifyCode}
+                      disabled={isVerifying || verificationCode.some((d) => d === "")}
+                      className={`w-full py-3 rounded-xl font-semibold text-base ${isVerifying || verificationCode.some((d) => d === "")
+                        ? "bg-[#5B21B6] text-white cursor-not-allowed"
+                        : "bg-[#5B21B6] text-white"
+                        }`}
+                    >
+                      {isVerifying ? (
+                        <div className="flex items-center justify-center gap-2">
+                          <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white"></div>
+                          Verifying...
+                        </div>
+                      ) : (
+                        "Verify & Withdraw"
+                      )}
+                    </button>
+
+                    <button
+                      onClick={handleResendCode}
+                      disabled={countdown > 0}
+                      className={`text-sm font-medium text-center ${countdown > 0
+                        ? "text-gray-400"
+                        : "text-[#5B21B6] hover:text-[#4c1d95]"
+                        }`}
+                    >
+                      {countdown > 0
+                        ? `Resend code in ${countdown}s`
+                        : "Resend verification code"}
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setShowEmailVerification(false);
+                        setVerificationCode(["", "", "", "", "", ""]);
+                        setVerificationError("");
+                        setIsCodeSent(false);
+                      }}
+                      className="text-sm text-[#5B21B6] hover:text-[#5B21B6] text-center font-semibold"
+                    >
+                      Cancel withdrawal
+                    </button>
+                  </div>
+                </div>
+              </>
 
             )}
           </div>
