@@ -328,6 +328,26 @@ export default function Dashboard() {
     }
   };
 
+  // Handle full 6-digit code input from single input box
+  const handleFullCodeInput = (value: string) => {
+    // Only allow digits and max 6 characters
+    const sanitized = value.replace(/\D/g, '').slice(0, 6);
+    const newCode = sanitized.split('');
+    
+    // Pad with empty strings if needed
+    while (newCode.length < 6) {
+      newCode.push('');
+    }
+    
+    setVerificationCode(newCode);
+    setVerificationError("");
+    
+    // Auto-submit when all 6 digits are entered
+    if (sanitized.length === 6) {
+      handleVerifyCode();
+    }
+  };
+
   // Generate a random 6-digit code
   const generateVerificationCode = () => {
     return Math.floor(100000 + Math.random() * 900000).toString();
