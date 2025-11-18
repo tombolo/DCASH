@@ -1,16 +1,22 @@
 // app/layout.tsx
 import './globals.css';
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
 import Script from 'next/script';
 import PWAInstallPrompt from '@/components/PWAInstallPrompt';
+
+export const viewport: Viewport = {
+  themeColor: '#0d6efd',
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+};
 
 export const metadata: Metadata = {
   title: 'My Trading App',
   description: 'Simplify your trading journey with free tools, AI bots, and copy trading',
   manifest: '/manifest.json',
-  themeColor: '#0d6efd',
-  viewport: 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',

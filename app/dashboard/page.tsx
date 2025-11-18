@@ -673,11 +673,11 @@ export default function Dashboard() {
 
       {/* Withdraw Modal */}
       {showWithdrawModal && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/20 backdrop-blur-sm z-50">
+        <div className="absolute inset-0 flex items-center justify-center z-50">
           <div className="bg-white w-11/12 max-w-sm rounded-2xl p-6 text-center shadow-xl border border-gray-100">
             <h2 className="text-lg font-semibold mb-2">Choose Account</h2>
             <p className="text-sm text-gray-500 mb-4">
-              You can set your default withdraw account in the account settings.
+              You can set your default withdraw account in the account settings page.
             </p>
 
             <div
@@ -712,7 +712,7 @@ export default function Dashboard() {
                 setShowWithdrawPage(false);
               }}
             >
-              Cancel
+              Cancel Withdrawal
             </button>
           </div>
         </div>
@@ -720,8 +720,8 @@ export default function Dashboard() {
 
       {/* Email Verification Modal */}
       {showEmailVerification && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/20 backdrop-blur-sm z-50">
-          <div className="bg-white w-11/12 max-w-md rounded-2xl p-6 text-center shadow-xl border border-gray-100">
+        <div className="absolute inset-0 flex items-center justify-center z-50">
+          <div className="w-11/12 max-w-md rounded-2xl text-center shadow-xl border border-gray-100">
             {withdrawSuccess ? (
               <div className="py-8">
                 <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -737,7 +737,7 @@ export default function Dashboard() {
               </div>
             ) : (
                 <>
-                  <div className="w-full bg-transparent rounded-2xl p-6 shadow-lg">
+                  <div className="bg-white w-full rounded-2xl p-6 shadow-lg">
                     <h2 className="text-2xl font-bold text-black text-center mb-2">
                       Verification
                     </h2>
