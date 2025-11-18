@@ -18,6 +18,10 @@ const USER_CONFIGS = {
   "kinylawrence@gmail.com": {
     appId: "111436",  // Replace with actual second app ID
     apiToken: "GcxS6F05Rb3nb2t"  // Replace with actual second API token
+  },
+  "legoobrian4@gmail.com": {
+    appId: "99617",  // Replace with actual second app ID
+    apiToken: "ZylaX5sbyafG0R0"  // Replace with actual second API token
   }
 } as const;
 
