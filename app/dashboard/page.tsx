@@ -548,8 +548,16 @@ export default function Dashboard() {
               <div key={i} className="flex justify-between items-center py-3">
                 <div>
                   <p className="text-sm font-semibold text-gray-800 flex items-center gap-2">
-                    <div className="w-6 h-6 rounded-full overflow-hidden flex items-center justify-center border border-gray-200">
-                      <ReactCountryFlag countryCode={tx.flag} svg style={{ width: "1.6em", height: "1.6em" }} />
+                    <div className="w-6 h-6 rounded-full overflow-hidden flex items-center justify-center">
+                      <ReactCountryFlag
+                        countryCode={tx.flag}
+                        svg
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          objectFit: "cover"
+                        }}
+                      />
                     </div>
                     {tx.type}
                   </p>
@@ -708,101 +716,107 @@ export default function Dashboard() {
                 </p>
               </div>
             ) : (
-              <>
-                <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <FaEnvelope className="text-xl text-[#5B21B6]" />
-                </div>
+                <>
+                  <div className="w-full bg-transparent rounded-2xl p-6 shadow-lg">
+                    <h2 className="text-2xl font-bold text-black text-center mb-2">
+                      Verification
+                    </h2>
 
-                <h2 className="text-xl font-semibold text-gray-800 mb-2">Email Verification Required</h2>
-
-                <p className="text-gray-600 mb-2">
-                  We sent a 6-digit verification code to
-                </p>
-                <p className="text-[#5B21B6] font-semibold mb-6">{user.email}</p>
-
-                {isCodeSent && (
-                  <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-6">
-                    <p className="text-green-700 text-sm">
-                      ✓ Verification code sent successfully
+                    <p className="text-gray-700 text-center text-base">
+                      Please enter the verification code sent to
                     </p>
-                  </div>
-                )}
 
-                <div className="mb-6">
-                  <label className="block text-sm font-medium text-gray-700 mb-3">
-                    Enter verification code:
-                  </label>
-                  <div className="flex justify-center gap-2">
-                    {verificationCode.map((digit, index) => (
-                      <input
-                        key={index}
-                        ref={el => {
-                          if (el) {
-                            inputRefs.current[index] = el;
-                          }
-                        }}
-                        type="text"
-                        maxLength={1}
-                        value={digit}
-                        onChange={(e) => handleVerificationCodeChange(e.target.value, index)}
-                        onKeyDown={(e) => handleKeyDown(e, index)}
-                        className="w-12 h-12 text-center text-lg font-semibold border-2 border-gray-300 rounded-lg focus:border-[#5B21B6] focus:ring-2 focus:ring-[#5B21B6] focus:ring-opacity-20 outline-none transition-colors"
-                        disabled={isVerifying}
-                      />
-                    ))}
-                  </div>
-                </div>
-
-                {verificationError && (
-                  <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
-                    <p className="text-red-700 text-sm flex items-center justify-center gap-2">
-                      <FaTimes />
-                      {verificationError}
+                    <p className="text-black font-semibold text-center text-base mb-6">
+                      {user.email}
                     </p>
-                  </div>
-                )}
 
-                <div className="flex flex-col gap-3">
-                  <button
-                    onClick={handleVerifyCode}
-                    disabled={isVerifying || verificationCode.some(digit => digit === "")}
-                    className={`w-full py-3 rounded-lg font-semibold ${isVerifying || verificationCode.some(digit => digit === "")
-                      ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                      : "bg-[#5B21B6] text-white hover:bg-[#4c1d95]"
-                      }`}
-                  >
-                    {isVerifying ? (
-                      <div className="flex items-center justify-center gap-2">
-                        <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white"></div>
-                        Verifying...
+                    {/* Verification Code Input Box (SINGLE BOX like screenshot) */}
+                    <div className="mb-6">
+                      <div className="w-full flex items-center bg-gray-100 rounded-xl px-4 py-3 border border-gray-300">
+                        <input
+                          type="text"
+                          maxLength={6}
+                          value={verificationCode.join("")}
+                          onChange={(e) => handleFullCodeInput(e.target.value)}
+                          className="w-full bg-transparent text-lg tracking-widest font-semibold outline-none"
+                          disabled={isVerifying}
+                        />
+                        <span className="text-gray-500">
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            className="h-6 w-6"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M12 11c.6 0 1-.4 1-1V7a1 1 0 10-2 0v3c0 .6.4 1 1 1zm0 4a1.5 1.5 0 100-3 1.5 1.5 0 000 3zm0 5a9 9 0 110-18 9 9 0 010 18z"
+                            />
+                          </svg>
+                        </span>
                       </div>
-                    ) : (
-                      "Verify & Withdraw"
+                    </div>
+
+                    {verificationError && (
+                      <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+                        <p className="text-red-700 text-sm flex items-center justify-center gap-2">
+                          <FaTimes />
+                          {verificationError}
+                        </p>
+                      </div>
                     )}
-                  </button>
 
-                  <button
-                    onClick={handleResendCode}
-                    disabled={countdown > 0}
-                    className={`text-sm font-medium ${countdown > 0 ? "text-gray-400" : "text-[#5B21B6] hover:text-[#4c1d95]"
-                      }`}
-                  >
-                    {countdown > 0 ? `Resend code in ${countdown}s` : "Resend verification code"}
-                  </button>
+                    {/* Buttons */}
+                    <div className="flex flex-col gap-3">
+                      <button
+                        onClick={handleVerifyCode}
+                        disabled={isVerifying || verificationCode.some((d) => d === "")}
+                        className={`w-full py-3 rounded-xl font-semibold text-base ${isVerifying || verificationCode.some((d) => d === "")
+                          ? "bg-[#5B21B6] text-white cursor-not-allowed"
+                            : "bg-[#5B21B6] text-white"
+                          }`}
+                      >
+                        {isVerifying ? (
+                          <div className="flex items-center justify-center gap-2">
+                            <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white"></div>
+                            Verifying...
+                          </div>
+                        ) : (
+                          "Verify & Withdraw"
+                        )}
+                      </button>
 
-                  <button
-                    onClick={() => {
-                      setShowEmailVerification(false);
-                      setVerificationCode(["", "", "", "", "", ""]);
-                      setVerificationError("");
-                      setIsCodeSent(false);
-                    }}
-                    className="text-sm text-gray-500 hover:text-gray-700 font-medium"
-                  >
-                    Cancel withdrawal
-                  </button>
-                </div>
-              </>
+                      <button
+                        onClick={handleResendCode}
+                        disabled={countdown > 0}
+                        className={`text-sm font-medium text-center ${countdown > 0
+                            ? "text-gray-400"
+                            : "text-[#5B21B6] hover:text-[#4c1d95]"
+                          }`}
+                      >
+                        {countdown > 0
+                          ? `Resend code in ${countdown}s`
+                          : "Resend verification code"}
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          setShowEmailVerification(false);
+                          setVerificationCode(["", "", "", "", "", ""]);
+                          setVerificationError("");
+                          setIsCodeSent(false);
+                        }}
+                        className="text-sm text-[#5B21B6] hover:text-[#5B21B6] text-center font-semibold"
+                      >
+                        Cancel withdrawal
+                      </button>
+                    </div>
+                  </div>
+                </>
+
             )}
           </div>
         </div>
