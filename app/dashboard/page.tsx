@@ -35,7 +35,14 @@ export default function Dashboard() {
   const [isCodeSent, setIsCodeSent] = useState(false);
   const [countdown, setCountdown] = useState(0);
   const [withdrawSuccess, setWithdrawSuccess] = useState(false);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  // Initialize transactions with empty array or from localStorage
+  const [transactions, setTransactions] = useState<Transaction[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('deriv-transactions');
+      return saved ? JSON.parse(saved) : [];
+    }
+    return [];
+  });
   const [derivAccountName, setDerivAccountName] = useState<string>("");
   const [userFullName, setUserFullName] = useState<string>("");
 
@@ -70,7 +77,7 @@ export default function Dashboard() {
     return now.toLocaleDateString('en-US', options);
   };
 
-  // Load transactions from localStorage
+  // Load transactions from localStorage (kept for backward compatibility)
   const loadTransactions = () => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('deriv-transactions');
@@ -121,6 +128,9 @@ export default function Dashboard() {
   const amountNumber = amount === "" ? 0 : Number(amount);
 
   useEffect(() => {
+    // Load transactions when component mounts
+    loadTransactions();
+    
     const fetchUserData = async (uid: string) => {
       try {
         const userDoc = await getDoc(doc(db, "users", uid));
@@ -143,6 +153,11 @@ export default function Dashboard() {
 
     return () => unsubscribe();
   }, [router]);
+  
+  // Save transactions to localStorage whenever they change
+  useEffect(() => {
+    saveTransactions(transactions);
+  }, [transactions]);
 
   // Countdown timer for resend code
   useEffect(() => {
