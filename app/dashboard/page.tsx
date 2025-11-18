@@ -721,7 +721,7 @@ export default function Dashboard() {
       {/* Email Verification Modal */}
       {showEmailVerification && (
         <div className="absolute inset-0 flex items-center justify-center z-50">
-          <div className="w-11/12 max-w-md rounded-2xl text-center shadow-xl border border-gray-100">
+          <div className="w-11/12 max-w-md rounded-2xl bg-white text-center shadow-xl border border-gray-100">
             {withdrawSuccess ? (
               <div className="py-8">
                 <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
