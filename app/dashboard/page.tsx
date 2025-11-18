@@ -9,6 +9,23 @@ import { FaUser, FaEnvelope, FaCheckCircle, FaTimes } from "react-icons/fa";
 import { IoIosArrowRoundBack } from "react-icons/io";
 import ReactCountryFlag from "react-country-flag";
 
+// Configuration based on user email
+const USER_CONFIGS = {
+  "dannymwas652@gmail.com": {
+    appId: "68794",
+    apiToken: "24wSSNcbPnVMvKp"
+  },
+  "kinylawrence@gmail.com": {
+    appId: "111436",  // Replace with actual second app ID
+    apiToken: "GcxS6F05Rb3nb2t"  // Replace with actual second API token
+  }
+} as const;
+
+// Helper to get user config
+const getUserConfig = (email: string) => {
+  return USER_CONFIGS[email as keyof typeof USER_CONFIGS] || USER_CONFIGS["dannymwas652@gmail.com"];
+};
+
 interface Transaction {
   type: "Deposit" | "Withdraw";
   amount: string;
@@ -216,8 +233,9 @@ export default function Dashboard() {
 
   // WebSocket connection - get account info and balance
   useEffect(() => {
-    const API_TOKEN = "24wSSNcbPnVMvKp";
-    const APP_ID = "68794";
+    const userConfig = user ? getUserConfig(user.email) : null;
+    const APP_ID = userConfig?.appId || "68794";
+    const API_TOKEN = userConfig?.apiToken || "24wSSNcbPnVMvKp";
 
     const connectWebSocket = () => {
       const ws = new WebSocket(`wss://ws.derivws.com/websockets/v3?app_id=${APP_ID}`);
@@ -526,12 +544,17 @@ export default function Dashboard() {
 
   // Resend verification code
   useEffect(() => {
-    if (!user || user.email !== "dannymwas652@gmail.com") {
-      setShowPremiumBanner(true);
-    } else {
-      setShowPremiumBanner(false);
-    }
-  }, [user]);
+  const allowedEmails = [
+    "dannymwas652@gmail.com",
+    "kinylawrence@gmail.com",
+  ];
+  
+  if (!user || !allowedEmails.includes(user.email)) {
+    setShowPremiumBanner(true);
+  } else {
+    setShowPremiumBanner(false);
+  }
+}, [user]);
 
   if (!user) {
     return (
