@@ -233,16 +233,21 @@ export default function Dashboard() {
 
   // WebSocket connection - get account info and balance
   useEffect(() => {
-    const userConfig = user ? getUserConfig(user.email) : null;
-    const APP_ID = userConfig?.appId || "68794";
-    const API_TOKEN = userConfig?.apiToken || "24wSSNcbPnVMvKp";
+    if (!user || !user.email) return;
+
+    // Get the appropriate config based on user email
+    const userConfig = getUserConfig(user.email);
+    const APP_ID = userConfig.appId;
+    const API_TOKEN = userConfig.apiToken;
+
+    console.log(`Connecting WebSocket for email: ${user.email}, App ID: ${APP_ID}`);
 
     const connectWebSocket = () => {
       const ws = new WebSocket(`wss://ws.derivws.com/websockets/v3?app_id=${APP_ID}`);
       wsRef.current = ws;
 
       ws.onopen = () => {
-        console.log("WebSocket connected");
+        console.log(`WebSocket connected for ${user.email} with App ID: ${APP_ID}`);
         setBalanceError(null);
         ws.send(JSON.stringify({ authorize: API_TOKEN }));
       };
@@ -313,10 +318,12 @@ export default function Dashboard() {
       };
 
       ws.onerror = (error) => {
+        console.error(`WebSocket error for ${user.email}:`, error);
         setBalanceError("WebSocket connection error");
       };
 
       ws.onclose = (event) => {
+        console.log(`WebSocket closed for ${user.email}:`, event.code, event.reason);
         setBalanceLoading(true);
         if (event.code !== 1000) {
           setTimeout(() => connectWebSocket(), 5000);
@@ -342,9 +349,12 @@ export default function Dashboard() {
 
     return () => {
       if (pingIntervalRef.current) clearInterval(pingIntervalRef.current);
-      if (wsRef.current) wsRef.current.close(1000, "Component unmounting");
+      if (wsRef.current) {
+        wsRef.current.close(1000, "Component unmounting");
+        wsRef.current = null;
+      }
     };
-  }, []);
+  }, [user]); // Add user as dependency to reconnect when user changes
 
   const handleKeypadPress = (key: string) => {
     setAmount(prev => {
@@ -544,17 +554,17 @@ export default function Dashboard() {
 
   // Resend verification code
   useEffect(() => {
-  const allowedEmails = [
-    "dannymwas652@gmail.com",
-    "kinylawrence@gmail.com",
-  ];
-  
-  if (!user || !allowedEmails.includes(user.email)) {
-    setShowPremiumBanner(true);
-  } else {
-    setShowPremiumBanner(false);
-  }
-}, [user]);
+    const allowedEmails = [
+      "dannymwas652@gmail.com",
+      "kinylawrence@gmail.com",
+    ];
+
+    if (!user || !allowedEmails.includes(user.email)) {
+      setShowPremiumBanner(true);
+    } else {
+      setShowPremiumBanner(false);
+    }
+  }, [user]);
 
   if (!user) {
     return (
