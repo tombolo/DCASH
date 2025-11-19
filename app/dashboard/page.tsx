@@ -112,7 +112,7 @@ export default function Dashboard() {
   // Generate transaction ID
   const generateTransactionId = (type?: "Deposit" | "Withdraw"): string => {
     const random = Math.random().toString(36).substring(2, 10).toUpperCase();
-    const prefix = type ? (type === "Deposit" ? "D" : "W") : "T";
+    const prefix = type ? (type === "Deposit" ? "T" : "T") : "T";
     return `${prefix}${random}`;
   };
 
