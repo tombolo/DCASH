@@ -110,9 +110,10 @@ export default function Dashboard() {
   };
 
   // Generate transaction ID
-  const generateTransactionId = (): string => {
+  const generateTransactionId = (type?: "Deposit" | "Withdraw"): string => {
     const random = Math.random().toString(36).substring(2, 10).toUpperCase();
-    return `T${random}`;
+    const prefix = type ? (type === "Deposit" ? "D" : "W") : "T";
+    return `${prefix}${random}`;
   };
 
   // Format date for transaction
