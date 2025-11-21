@@ -5,7 +5,8 @@ import { auth, db } from "@/lib/firebaseConfig";
 import { doc, getDoc } from "firebase/firestore";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { useRouter } from "next/navigation";
-import { FaRegUser, FaEnvelope, FaCheckCircle, FaTimes } from "react-icons/fa";
+import { FaEnvelope, FaCheckCircle, FaTimes } from "react-icons/fa";
+import { FaRegUser } from "react-icons/fa6";
 import { IoIosArrowRoundBack } from "react-icons/io";
 import ReactCountryFlag from "react-country-flag";
 
@@ -601,7 +602,7 @@ export default function Dashboard() {
         </div>
         <div className="relative group">
           <button
-            className="text-black hover:text-black text-lg"
+            className="text-black hover:text-black text-2xl ml-2"
             onClick={() => document.querySelector('.profile-dropdown')?.classList.toggle('hidden')}
           >
             <FaRegUser />
