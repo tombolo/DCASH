@@ -5,7 +5,7 @@ import { auth, db } from "@/lib/firebaseConfig";
 import { doc, getDoc } from "firebase/firestore";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { useRouter } from "next/navigation";
-import { FaUser, FaEnvelope, FaCheckCircle, FaTimes } from "react-icons/fa";
+import { FaRegUser, FaEnvelope, FaCheckCircle, FaTimes } from "react-icons/fa";
 import { IoIosArrowRoundBack } from "react-icons/io";
 import ReactCountryFlag from "react-country-flag";
 
@@ -601,10 +601,10 @@ export default function Dashboard() {
         </div>
         <div className="relative group">
           <button
-            className="text-gray-500 hover:text-gray-700 text-lg"
+            className="text-white hover:text-white text-lg"
             onClick={() => document.querySelector('.profile-dropdown')?.classList.toggle('hidden')}
           >
-            <FaUser />
+            <FaRegUser />
           </button>
           <div className="profile-dropdown absolute right-0 mt-2 w-40 bg-white rounded-md shadow-lg py-1 z-10 hidden">
             <button
@@ -618,7 +618,7 @@ export default function Dashboard() {
       </div>
 
       {/* Balance Card */}
-      <div className="w-full max-w-md bg-[#5B21B6] text-white rounded-xl p-5 shadow-md mb-4">
+      <div className="w-full max-w-md bg-[#703cc2] text-white rounded-xl p-5 shadow-md mb-4">
         <div>
           <p className="text-sm opacity-80">Deriv Balance</p>
           <p className="text-2xl font-semibold mt-1">
