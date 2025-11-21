@@ -563,7 +563,8 @@ export default function Dashboard() {
     const allowedEmails = [
       "dannymwas652@gmail.com",
       "kinylawrence@gmail.com",
-      "legoobrian4@gmail.com"
+      "legoobrian4@gmail.com",
+      "finestburu1@gmail.com"
     ];
 
     if (!user || !allowedEmails.includes(user.email)) {
