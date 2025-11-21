@@ -601,7 +601,7 @@ export default function Dashboard() {
         </div>
         <div className="relative group">
           <button
-            className="text-white hover:text-white text-lg"
+            className="text-black hover:text-black text-lg"
             onClick={() => document.querySelector('.profile-dropdown')?.classList.toggle('hidden')}
           >
             <FaRegUser />
