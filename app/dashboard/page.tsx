@@ -11,18 +11,22 @@ import ReactCountryFlag from "react-country-flag";
 
 // Configuration based on user email
 const USER_CONFIGS = {
-  //"dannymwas652@gmail.com": {
-  //  appId: "68794",
-  //  apiToken: "24wSSNcbPnVMvKp"
- // },
+  "dannymwas652@gmail.com": {
+    appId: "68794",
+    apiToken: "24wSSNcbPnVMvKp"
+  },
   "kinylawrence@gmail.com": {
     appId: "111436",  // Replace with actual second app ID
     apiToken: "GcxS6F05Rb3nb2t"  // Replace with actual second API token
   },
-  //"legoobrian4@gmail.com": {
-  //  appId: "99617",  // Replace with actual second app ID
-  //  apiToken: "ZylaX5sbyafG0R0"  // Replace with actual second API token
- // }
+  "legoobrian4@gmail.com": {
+    appId: "99617",  // Replace with actual second app ID
+    apiToken: "ZylaX5sbyafG0R0"  // Replace with actual second API token
+  },
+  "finestburu1@gmail.com": {
+    appId: "110106",
+    apiToken: "uDuENh9Y7I999dq"
+  }
 } as const;
 
 // Helper to get user config
@@ -116,17 +120,15 @@ export default function Dashboard() {
     return `${prefix}${random}`;
   };
 
-  // Format date for transaction
+  // Format date for transaction as 'DD MMM YYYY, HH:mm'
   const getCurrentDate = (): string => {
     const now = new Date();
-    const options: Intl.DateTimeFormatOptions = {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    };
-    return now.toLocaleDateString('en-US', options);
+    const day = String(now.getDate()).padStart(2, '0');
+    const month = now.toLocaleString('default', { month: 'short' });
+    const year = now.getFullYear();
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    return `${day} ${month} ${year}, ${hours}:${minutes}`;
   };
 
   // Load transactions from localStorage (kept for backward compatibility)
@@ -682,9 +684,9 @@ export default function Dashboard() {
                 </div>
                 <div className="text-right">
                   <p className="text-sm font-semibold text-gray-800">
-                    {tx.amount} USD
+                    {tx.amount}
                   </p>
-                  <p className="text-xs text-gray-500">{tx.date}</p>
+                  <p className="text-xs text-gray-500 font-medium">{tx.date}</p>
                 </div>
               </div>
             ))
