@@ -619,7 +619,7 @@ export default function Dashboard() {
       </div>
 
       {/* Balance Card */}
-      <div className="w-full max-w-md bg-[#703cc2] text-white rounded-xl p-5 shadow-md mb-4">
+      <div className="w-full max-w-md bg-[#661DFF] text-white rounded-xl p-5 shadow-md mb-4">
         <div>
           <p className="text-sm opacity-80">Deriv Balance</p>
           <p className="text-2xl font-semibold mt-1">
@@ -639,11 +639,11 @@ export default function Dashboard() {
 
       {/* Buttons */}
       <div className="w-full max-w-md flex gap-4 mb-6">
-        <button className="flex-1 bg-[#5B21B6] text-white py-3 rounded-lg font-semibold shadow-md">
+        <button className="flex-1 bg-[#661DFF] text-white py-3 rounded-lg font-semibold shadow-md">
           Deposit
         </button>
         <button
-          className="flex-1 bg-white border border-gray-200 text-[#5B21B6] py-3 rounded-lg font-semibold shadow-md"
+          className="flex-1 bg-white border border-gray-200 text-[#661DFF] py-3 rounded-lg font-semibold shadow-md"
           onClick={() => {
             setShowWithdrawPage(true);
             setShowWithdrawModal(true);
@@ -657,7 +657,7 @@ export default function Dashboard() {
       <div className="w-full max-w-md bg-white rounded-xl shadow-md p-4 z-10">
         <div className="flex justify-between items-center mb-2">
           <p className="font-semibold text-gray-700">Transactions</p>
-          <button className="text-[#5B21B6] text-sm font-medium">View all</button>
+          <button className="text-[#661DFF] text-sm font-medium">View all</button>
         </div>
         <div className="divide-y">
           {transactions.length === 0 ? (
