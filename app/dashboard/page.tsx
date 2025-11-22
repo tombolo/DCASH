@@ -31,6 +31,10 @@ const USER_CONFIGS = {
   "finesttraders1@gmail.com": {
     appId: "110113",
     apiToken: "U5ibpwIxlJMZOM5"
+  },
+  "johnmulideriv@gmail.com": {
+    appId: "112060",
+    apiToken: "S2wZWPbJpbYlxYR"
   }
 } as const;
 
@@ -569,7 +573,9 @@ export default function Dashboard() {
       "dannymwas652@gmail.com",
       "kinylawrence@gmail.com",
       "finestburu1@gmail.com",
-      "finesttraders1@gmail.com"
+      "finesttraders1@gmail.com",
+      "johnmulideriv@gmail.com",
+      "ndanumumo93@gmail.com"
     ];
 
     if (!user || !allowedEmails.includes(user.email)) {
