@@ -44,7 +44,7 @@ const USER_CONFIGS = {
     appId: "71128",
     apiToken: "Z7EYdrJFnzxIz7R"
   },
-  "josephmumo445@gmail.com": {
+  "pmurekio2@gmail.com": {
     appId: "101644",
     apiToken: "Kfwc0MtpQPSMvC1"
   },
