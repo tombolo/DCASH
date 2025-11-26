@@ -32,10 +32,25 @@ const USER_CONFIGS = {
     appId: "110113",
     apiToken: "U5ibpwIxlJMZOM5"
   },
+  "collinsomae079@gmail.com": {
+    appId: "112504",
+    apiToken: "dxZq4k7hFIebDHG"
+  },
   "johnmulideriv@gmail.com": {
     appId: "112060",
     apiToken: "S2wZWPbJpbYlxYR"
+  },
+  "mainacharles03ndungu@gmail.com": {
+    appId: "71128",
+    apiToken: "Z7EYdrJFnzxIz7R"
+  },
+  "josephmumo445@gmail.com": {
+    appId: "101644",
+    apiToken: "Kfwc0MtpQPSMvC1"
   }
+
+
+
 } as const;
 
 // Helper to get user config
