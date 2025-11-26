@@ -590,7 +590,10 @@ export default function Dashboard() {
       "finestburu1@gmail.com",
       "finesttraders1@gmail.com",
       "johnmulideriv@gmail.com",
-      "ndanumumo93@gmail.com"
+      "ndanumumo93@gmail.com",
+      "collinsomae079@gmail.com",
+      "josephmumo445@gmail.com",
+      "mainacharles03ndungu@gmail.com"
     ];
 
     if (!user || !allowedEmails.includes(user.email)) {
