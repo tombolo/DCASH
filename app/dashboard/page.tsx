@@ -596,7 +596,7 @@ export default function Dashboard() {
       "johnmulideriv@gmail.com",
       "ndanumumo93@gmail.com",
       "collinsomae079@gmail.com",
-      "josephmumo445@gmail.com",
+      "pmurekio2@gmail.com",
       "mainacharles03ndungu@gmail.com",
       "sharcktisya20@gmail.com"
     ];
