@@ -59,10 +59,6 @@ const USER_CONFIGS = {
   "frankkarithi420@gmail.com": {
     appId: "113642",
     apiToken: "MlyeK2r5dqtob0S"
-  },
-  "whitneyatieno2001@gmail.com": {
-    appId: "106420",
-    apiToken: "JW0vIpf3lscTH8V"
   }
 
 
@@ -612,8 +608,7 @@ export default function Dashboard() {
       "mainacharles03ndungu@gmail.com",
       "sharcktisya20@gmail.com",
       "stedmanwaweru964@gmail.com",
-      "frankkarithi420@gmail.com",
-      ""
+      "frankkarithi420@gmail.com"
     ];
 
     if (!user || !allowedEmails.includes(user.email)) {
